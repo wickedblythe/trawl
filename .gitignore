@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Environment / dotfiles (not part of the project)
+.bash_profile
+.bashrc
+.zshrc
+.zprofile
+.profile
+.gitconfig
+.gitmodules
+.ripgreprc
+.mcp.json
+
+# IDE
+.idea
+.vscode
+
+# OMC state (but keep .claude/ for project config)
+.omc/
+.claude/*
+!.claude/CLAUDE.md
+
+# Legacy bare-repo artifacts
+HEAD
+config
+hooks
+objects
+refs
