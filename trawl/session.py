@@ -298,7 +298,7 @@ AGENT_COLORS = [
 
 
 def short_id(full_id: str) -> str:
-    return full_id[:7]
+    return full_id[:8]
 
 
 def format_size(n: int) -> str:

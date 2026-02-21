@@ -36,7 +36,9 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command")
 
     # find
-    sub.add_parser("find", parents=[global_opts], help="List all sessions")
+    p_find = sub.add_parser("find", parents=[global_opts], help="List all sessions")
+    p_find.add_argument("--all", "-a", action="store_true", dest="show_all",
+                        help="Include empty (0 message) sessions")
 
     # read
     p_read = sub.add_parser("read", parents=[global_opts], help="Render a conversation")
@@ -113,7 +115,7 @@ def main():
     # No command or explicit find
     if not args.command or args.command == "find":
         from trawl.commands.find import cmd_find
-        data = cmd_find(sessions)
+        data = cmd_find(sessions, include_empty=getattr(args, "show_all", False))
         if fmt == "json":
             from trawl.formatters.json import format_json
             format_json(data)

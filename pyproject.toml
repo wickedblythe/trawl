@@ -8,6 +8,9 @@ dependencies = ["rich"]
 [project.scripts]
 trawl = "trawl:main"
 
+[dependency-groups]
+dev = ["pytest"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

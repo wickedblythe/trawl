@@ -61,36 +61,48 @@ def table_box():
 
 # ── Find formatter ────────────────────────────────────────────────────
 
+def _clean_project(name: str) -> str:
+    """Strip common path prefixes from project directory names."""
+    # Projects are encoded as -home-user-path, strip the home prefix
+    import re as _re
+    cleaned = _re.sub(r"^-home-[^-]+-", "", name)
+    return cleaned or name
+
+
 def format_find(data: list[dict]) -> None:
     w = min(console.width, 120)
-    msg_width = max(20, w - 62)
-    table = Table(title="Claude Code Sessions", show_lines=False,
+    msg_width = max(20, w - 60)
+    table = Table(title="Sessions", show_lines=False,
                   padding=(0, 1), width=w, box=table_box())
-    table.add_column("ID", style="bold cyan", no_wrap=True, width=7)
-    table.add_column("Project", style="dim", no_wrap=True, width=10)
-    table.add_column("Date", style="green", no_wrap=True, width=16)
+    table.add_column("ID", style="bold cyan", no_wrap=True, width=8)
+    table.add_column("Project", style="dim", no_wrap=True, justify="right", width=10)
+    table.add_column("Date", style="green", no_wrap=True, justify="right", width=16)
     table.add_column("Size", justify="right", no_wrap=True, width=6)
     table.add_column("Msgs", justify="right", no_wrap=True, width=4)
-    table.add_column("T", justify="center", style="bold magenta", width=1)
+    table.add_column("Agents", justify="right", style="magenta", width=6)
     table.add_column("First Message", no_wrap=True, overflow="ellipsis", width=msg_width)
 
     for s in data:
         dt = datetime.fromisoformat(s["date"])
         date_str = dt.strftime("%Y-%m-%d %H:%M")
-        team_marker = "T" if s["has_agents"] else ""
-        project_short = s["project"].removeprefix("-home-sisyphus-").removeprefix("-home-mork-") or s["project"]
+        agent_count = s.get("agent_count", 0)
+        agents_str = str(agent_count) if agent_count > 0 else ""
         table.add_row(
             short_id(s["id"]),
-            project_short,
+            _clean_project(s["project"]),
             date_str,
             format_size(s["size"]),
             str(s["messages"]),
-            team_marker,
+            agents_str,
             escape(s["preview"]),
         )
 
     console.print(table)
-    console.print(f"\n[dim]{len(data)} sessions found[/]")
+    has_agents = any(s.get("agent_count", 0) > 0 for s in data)
+    footer = f"\n[dim]{len(data)} sessions[/]"
+    if has_agents:
+        footer += "\n[dim]Tip: trawl <id> --agents to list subagents, trawl <id> --agent <aid> to read one[/]"
+    console.print(footer)
 
 
 # ── Agents formatter ──────────────────────────────────────────────────

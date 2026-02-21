@@ -98,7 +98,7 @@ class TestIterJsonl:
 
 class TestHelpers:
     def test_short_id(self):
-        assert short_id("abc12345-full-id") == "abc1234"
+        assert short_id("abc12345-full-id") == "abc12345"
 
     def test_format_size(self):
         assert format_size(500) == "500B"
