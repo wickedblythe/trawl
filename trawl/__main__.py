@@ -140,6 +140,7 @@ def main():
                 format_json(data)
             else:
                 from trawl.formatters.human import format_read, box_style
+                from rich.panel import Panel
                 console.print(Panel(
                     f"Agent {agent.id} in session {short_id(parent.id)}",
                     style="bold cyan", box=box_style(),
@@ -172,6 +173,7 @@ def main():
                     format_json(data)
                 else:
                     from trawl.formatters.human import format_read, box_style
+                    from rich.panel import Panel
                     console.print(Panel(
                         f"Agent {agent.id} in session {short_id(session.id)}",
                         style="bold cyan", box=box_style(),
