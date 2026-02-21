@@ -25,6 +25,8 @@ def _build_parser() -> argparse.ArgumentParser:
                              help="Force ASCII output (no Unicode box drawing)")
     global_opts.add_argument("--color", action="store_true",
                              help="Force color output (for piping to less -R)")
+    global_opts.add_argument("--full", action="store_true",
+                             help="No truncation — show full message text")
 
     parser = argparse.ArgumentParser(
         prog="trawl",
@@ -98,7 +100,7 @@ def main():
     # Init human formatter
     from trawl.formatters.human import init as init_human, detect_ascii
     ascii_mode = args.ascii or detect_ascii()
-    init_human(ascii_mode=ascii_mode, force_color=args.color)
+    init_human(ascii_mode=ascii_mode, force_color=args.color, full=args.full)
     from trawl.formatters.human import console
 
     fmt = _get_format(args)

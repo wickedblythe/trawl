@@ -26,12 +26,14 @@ from trawl.session import (
 # ── Module state ──────────────────────────────────────────────────────
 
 USE_ASCII = False
+FULL_MODE = False
 console = Console()
 
 
-def init(ascii_mode: bool = False, force_color: bool = False):
-    global USE_ASCII, console
+def init(ascii_mode: bool = False, force_color: bool = False, full: bool = False):
+    global USE_ASCII, FULL_MODE, console
     USE_ASCII = ascii_mode
+    FULL_MODE = full
     if force_color:
         console = Console(force_terminal=True)
     else:
@@ -172,7 +174,7 @@ def _render_tool_result(block: dict) -> Text:
                 parts.append(str(c))
         content = "\n".join(parts)
     content = str(content)
-    truncated = truncate_lines(content, max_lines=3)
+    truncated = content if FULL_MODE else truncate_lines(content, max_lines=3)
     t = Text()
     t.append("  [result] ", style="dim")
     t.append(truncated, style="dim")
@@ -210,12 +212,14 @@ def render_record(rec: Record, prev_ts: datetime | None,
     if rtype == "user":
         if rec.is_meta:
             return ts
+        # Sidechain user messages are main-Claude prompts to subagents
+        is_prompt = rec.is_sidechain
         if isinstance(content, str):
             text = content.strip()
             if is_noise_user_content(text):
                 return ts
-            title = "User"
-            border = "cyan"
+            title = "Prompt" if is_prompt else "User"
+            border = "blue" if is_prompt else "cyan"
             tm = extract_teammate_msg(text)
             if tm:
                 sender, text = tm
@@ -223,8 +227,9 @@ def render_record(rec: Record, prev_ts: datetime | None,
                 border = "magenta"
             if agent_label:
                 title = f"{agent_label} > {title}"
+            body = Markdown(text) if (FULL_MODE or len(text) < 5000) else Text(truncate_lines(text, 20))
             console.print(Panel(
-                Markdown(text) if len(text) < 5000 else Text(truncate_lines(text, 20)),
+                body,
                 title=title, title_align="left",
                 border_style=border, width=min(console.width, 120),
                 padding=(0, 1), box=box_style(),
@@ -244,13 +249,15 @@ def render_record(rec: Record, prev_ts: datetime | None,
             if text_parts:
                 joined = "\n".join(text_parts).strip()
                 if not is_noise_user_content(joined):
-                    title = "User"
+                    title = "Prompt" if is_prompt else "User"
+                    border = "blue" if is_prompt else "cyan"
                     if agent_label:
-                        title = f"{agent_label} > User"
+                        title = f"{agent_label} > {title}"
+                    body = Markdown(joined) if (FULL_MODE or len(joined) < 5000) else Text(truncate_lines(joined, 20))
                     console.print(Panel(
-                        Markdown(joined) if len(joined) < 5000 else Text(truncate_lines(joined, 20)),
+                        body,
                         title=title, title_align="left",
-                        border_style="cyan", width=min(console.width, 120),
+                        border_style=border, width=min(console.width, 120),
                         padding=(0, 1), box=box_style(),
                     ))
             for tr in tool_results:
@@ -278,7 +285,7 @@ def render_record(rec: Record, prev_ts: datetime | None,
                 if agent_label:
                     title = f"{agent_label} > {title}"
                 console.print(Panel(
-                    Markdown(joined) if len(joined) < 8000 else Text(truncate_lines(joined, 30)),
+                    Markdown(joined) if (FULL_MODE or len(joined) < 8000) else Text(truncate_lines(joined, 30)),
                     title=title, title_align="left",
                     border_style="green", width=min(console.width, 120),
                     padding=(0, 1), box=box_style(),
@@ -302,7 +309,7 @@ def render_record(rec: Record, prev_ts: datetime | None,
                     ))
                 elif name == "Task":
                     task_desc = inp.get("description", "")
-                    task_prompt = inp.get("prompt", "")[:80]
+                    task_prompt = inp.get("prompt", "") if FULL_MODE else inp.get("prompt", "")[:80]
                     t = Text()
                     if agent_label:
                         t.append(f"  [{agent_label}] ", style=agent_color or "dim")
@@ -422,10 +429,11 @@ def _render_flow_record(rec: Record, prev_ts: datetime | None,
         console.print(time_text)
 
     if rec.type == "user":
+        is_prompt = rec.is_sidechain
         if isinstance(content, str):
             text = content.strip()
-            title = "User"
-            border = "cyan"
+            title = "Prompt" if is_prompt else "User"
+            border = "blue" if is_prompt else "cyan"
             tm = extract_teammate_msg(text)
             if tm:
                 sender, text = tm
@@ -433,8 +441,9 @@ def _render_flow_record(rec: Record, prev_ts: datetime | None,
                 border = "magenta"
             if agent_label:
                 title = f"{agent_label} > {title}"
+            body = Markdown(text) if (FULL_MODE or len(text) < 5000) else Text(truncate_lines(text, 20))
             console.print(Panel(
-                Markdown(text) if len(text) < 5000 else Text(truncate_lines(text, 20)),
+                body,
                 title=title, title_align="left",
                 border_style=border, width=min(console.width, 120),
                 padding=(0, 1), box=box_style(),
@@ -450,13 +459,15 @@ def _render_flow_record(rec: Record, prev_ts: datetime | None,
                         text_parts.append(t)
             if text_parts:
                 joined = "\n".join(text_parts).strip()
-                title = "User"
+                title = "Prompt" if is_prompt else "User"
+                border = "blue" if is_prompt else "cyan"
                 if agent_label:
-                    title = f"{agent_label} > User"
+                    title = f"{agent_label} > {title}"
+                body = Markdown(joined) if (FULL_MODE or len(joined) < 5000) else Text(truncate_lines(joined, 20))
                 console.print(Panel(
-                    Markdown(joined) if len(joined) < 5000 else Text(truncate_lines(joined, 20)),
+                    body,
                     title=title, title_align="left",
-                    border_style="cyan", width=min(console.width, 120),
+                    border_style=border, width=min(console.width, 120),
                     padding=(0, 1), box=box_style(),
                 ))
 
@@ -484,7 +495,7 @@ def _render_flow_record(rec: Record, prev_ts: datetime | None,
                 if agent_label:
                     title = f"{agent_label} > {title}"
                 console.print(Panel(
-                    Markdown(joined) if len(joined) < 8000 else Text(truncate_lines(joined, 30)),
+                    Markdown(joined) if (FULL_MODE or len(joined) < 8000) else Text(truncate_lines(joined, 30)),
                     title=title, title_align="left",
                     border_style="green", width=min(console.width, 120),
                     padding=(0, 1), box=box_style(),
@@ -508,7 +519,7 @@ def _render_flow_record(rec: Record, prev_ts: datetime | None,
                     ))
                 elif name == "Task":
                     desc = inp.get("description", "")
-                    prompt = inp.get("prompt", "")[:120]
+                    prompt = inp.get("prompt", "") if FULL_MODE else inp.get("prompt", "")[:120]
                     t = Text()
                     if agent_label:
                         t.append(f"  [{agent_label}] ", style=agent_color or "dim")
