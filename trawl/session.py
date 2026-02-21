@@ -164,6 +164,14 @@ class Agent:
                 continue
             yield rec
 
+    def peek_model(self) -> str:
+        """Return model from first assistant record, or ''."""
+        for raw in iter_jsonl(self.path):
+            rec = Record(raw)
+            if rec.type == "assistant" and rec.model:
+                return rec.model
+        return ""
+
 
 # ── Session ───────────────────────────────────────────────────────────
 
@@ -199,6 +207,21 @@ class Session:
                 aid = f.stem.removeprefix("agent-")
                 agents.append(Agent(aid, f, f.stat().st_size))
         return agents
+
+    def task_spawns(self) -> list[dict]:
+        """Extract Task tool_use calls from this session, in order."""
+        spawns = []
+        for raw in iter_jsonl(self.path):
+            rec = Record(raw)
+            for tu in rec.tool_uses:
+                if tu.get("name") == "Task":
+                    inp = tu.get("input", {})
+                    spawns.append({
+                        "subagent_type": inp.get("subagent_type", ""),
+                        "description": inp.get("description", ""),
+                        "name": inp.get("name", ""),
+                    })
+        return spawns
 
     def all_records(self, after: datetime | None = None, before: datetime | None = None) -> Iterator[tuple[str, Record]]:
         """Interleaved main + agent records, sorted by timestamp."""

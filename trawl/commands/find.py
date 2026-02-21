@@ -31,10 +31,14 @@ def cmd_find(sessions: list[Session], include_empty: bool = False) -> list[dict]
 def cmd_agents(session: Session) -> list[dict]:
     """Return subagent list as canonical dicts."""
     agents = session.agents()
+    spawns = session.task_spawns()
     result = []
-    for a in agents:
+    for i, a in enumerate(agents):
+        spawn = spawns[i] if i < len(spawns) else {}
         result.append({
             "id": a.id,
+            "model": a.peek_model(),
+            "type": spawn.get("subagent_type", ""),
             "size": a.size,
             "messages": count_messages(a.path),
             "preview": first_user_message(a.path),

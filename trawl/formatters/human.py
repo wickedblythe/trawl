@@ -106,30 +106,42 @@ def format_find(data: list[dict]) -> None:
 
 # ── Agents formatter ──────────────────────────────────────────────────
 
+def _short_agent_type(t: str) -> str:
+    """Shorten subagent_type for display."""
+    # "oh-my-claudecode:executor" -> "executor"
+    if ":" in t:
+        t = t.split(":", 1)[1]
+    # "general-purpose" stays as-is
+    return t
+
+
 def format_agents(data: list[dict], session_id: str) -> None:
     if not data:
         console.print("[yellow]No subagents found for this session.[/]")
         return
 
     w = min(console.width, 120)
-    msg_w = max(20, w - 32)
     table = Table(title=f"Subagents for {short_id(session_id)}",
                   show_lines=False, padding=(0, 1), box=table_box(), width=w)
-    table.add_column("Agent", style="bold cyan", no_wrap=True, width=7)
-    table.add_column("Size", justify="right", no_wrap=True, width=6)
-    table.add_column("Msgs", justify="right", no_wrap=True, width=4)
-    table.add_column("First Message", no_wrap=True, overflow="ellipsis", width=msg_w)
+    table.add_column("Agent", style="bold cyan", no_wrap=True, min_width=8)
+    table.add_column("Type", style="yellow", no_wrap=True, max_width=18)
+    table.add_column("Model", style="dim", no_wrap=True, max_width=12)
+    table.add_column("Size", justify="right", no_wrap=True)
+    table.add_column("Msgs", justify="right", no_wrap=True)
+    table.add_column("First Message", no_wrap=True, overflow="ellipsis", ratio=1)
 
     for a in data:
         table.add_row(
             a["id"],
+            _short_agent_type(a.get("type", "")),
+            a.get("model", ""),
             format_size(a["size"]),
             str(a["messages"]),
             escape(a["preview"]),
         )
 
     console.print(table)
-    console.print(f"\n[dim]{len(data)} subagents[/]")
+    console.print(f"\n[dim]{len(data)} subagents — trawl {short_id(session_id)} --agent <id> to read one[/]")
 
 
 # ── Record rendering ──────────────────────────────────────────────────
