@@ -16,7 +16,14 @@ def config_dir() -> Path:
     env = os.environ.get("CLAUDE_CONFIG_DIR")
     if env:
         return Path(env)
-    return Path.home() / ".config" / "claude"
+    # Check both common locations
+    xdg = Path.home() / ".config" / "claude"
+    if xdg.exists():
+        return xdg
+    dot = Path.home() / ".claude"
+    if dot.exists():
+        return dot
+    return xdg  # default
 
 
 def projects_dir() -> Path:
