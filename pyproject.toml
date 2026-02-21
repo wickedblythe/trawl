@@ -1,0 +1,16 @@
+[project]
+name = "trawl"
+version = "0.1.0"
+description = "Claude Code transcript trawler"
+requires-python = ">=3.10"
+dependencies = ["rich"]
+
+[project.scripts]
+trawl = "trawl:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
