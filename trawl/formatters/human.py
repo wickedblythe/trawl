@@ -334,13 +334,7 @@ def render_record(rec: Record, prev_ts: datetime | None,
         console.print(t)
 
     elif rtype == "progress":
-        ptype = rec.progress_data.get("type", "")
-        if ptype not in ("hook_progress", "agent_progress", ""):
-            t = Text()
-            if agent_label:
-                t.append(f"  [{agent_label}] ", style=agent_color or "dim")
-            t.append(f"  [progress] {ptype}", style="dim")
-            console.print(t)
+        pass  # progress records are noise — suppress all
 
     return ts
 
