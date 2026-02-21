@@ -71,16 +71,15 @@ def _clean_project(name: str) -> str:
 
 def format_find(data: list[dict]) -> None:
     w = min(console.width, 120)
-    msg_width = max(20, w - 60)
     table = Table(title="Sessions", show_lines=False,
                   padding=(0, 1), width=w, box=table_box())
-    table.add_column("ID", style="bold cyan", no_wrap=True, width=8)
-    table.add_column("Project", style="dim", no_wrap=True, justify="right", width=10)
-    table.add_column("Date", style="green", no_wrap=True, justify="right", width=16)
-    table.add_column("Size", justify="right", no_wrap=True, width=6)
-    table.add_column("Msgs", justify="right", no_wrap=True, width=4)
-    table.add_column("Agents", justify="right", style="magenta", width=6)
-    table.add_column("First Message", no_wrap=True, overflow="ellipsis", width=msg_width)
+    table.add_column("ID", style="bold cyan", no_wrap=True, min_width=8)
+    table.add_column("Project", style="dim", no_wrap=True, justify="right", max_width=12)
+    table.add_column("Date", style="green", no_wrap=True, justify="right", min_width=16)
+    table.add_column("Size", justify="right", no_wrap=True)
+    table.add_column("Msgs", justify="right", no_wrap=True)
+    table.add_column("Ag", justify="right", style="magenta")
+    table.add_column("First Message", no_wrap=True, overflow="ellipsis", ratio=1)
 
     for s in data:
         dt = datetime.fromisoformat(s["date"])
