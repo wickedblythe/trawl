@@ -87,7 +87,7 @@ def cmd_shapes(
     fp_info: dict[str, tuple[str, str, int, dict]] = {}
     fp_counts: Counter[str] = Counter()
 
-    for idx, rec in enumerate(session.records()):
+    for idx, (_source, rec) in enumerate(session.all_records()):
         fp = fingerprint(rec.raw)
         fp_counts[fp] += 1
         if fp not in fp_info:

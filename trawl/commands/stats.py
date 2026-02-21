@@ -32,9 +32,8 @@ def cmd_stats(session: Session, aspect: str | None = None) -> dict:
     # Parallelism (sidechain)
     sidechain_count = 0
 
-    # We need to check tool_results in user records that follow assistant records
-    # Iterate all records once, collecting tool_result error counts from user records
-    for rec in session.records():
+    # Iterate all records (main + subagents) for comprehensive stats
+    for _source, rec in session.all_records():
         ts = rec.timestamp
         if ts is not None:
             if first_ts is None or ts < first_ts:

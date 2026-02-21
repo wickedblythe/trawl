@@ -37,7 +37,7 @@ def cmd_trace(
 
     events: list[dict] = []
 
-    for rec in session.records(after=after, before=before):
+    for source, rec in session.all_records(after=after, before=before):
         t = _ts_iso(rec)
 
         if rec.type == "user":
@@ -48,13 +48,20 @@ def cmd_trace(
             text = rec.content_text
             if is_noise_user_content(text):
                 continue
-            events.append({"t": t, "type": "user", "preview": text[:80]})
+            ev: dict = {"t": t, "type": "user", "preview": text[:80]}
+            if source != "main":
+                ev["source"] = source
+            events.append(ev)
 
         elif rec.type == "assistant":
+            base: dict = {"t": t}
+            if source != "main":
+                base["source"] = source
+
             # thinking blocks
             for block in rec.thinking_blocks:
                 thinking_text = block.get("thinking", "")
-                events.append({"t": t, "type": "thinking", "preview": thinking_text[:80]})
+                events.append({**base, "type": "thinking", "preview": thinking_text[:80]})
 
             if thinking_only:
                 continue
@@ -62,7 +69,7 @@ def cmd_trace(
             # text content
             text = rec.content_text
             if text:
-                events.append({"t": t, "type": "text", "preview": text[:80]})
+                events.append({**base, "type": "text", "preview": text[:80]})
 
             # tool uses
             for tu in rec.tool_uses:
@@ -73,7 +80,7 @@ def cmd_trace(
                     description = inp.get("description", "")
                     prompt = inp.get("prompt", "")
                     events.append({
-                        "t": t,
+                        **base,
                         "type": "spawn",
                         "agent": description,
                         "prompt": prompt[:80],
@@ -81,7 +88,7 @@ def cmd_trace(
                 else:
                     target = _tool_target(inp)
                     events.append({
-                        "t": t,
+                        **base,
                         "type": "tool",
                         "name": name,
                         "target": target[:120],
@@ -103,7 +110,7 @@ def _build_chains(
     """Build a subagent spawn tree from Task tool_uses."""
     roots: list[dict] = []
 
-    for rec in session.records(after=after, before=before):
+    for _source, rec in session.all_records(after=after, before=before):
         if rec.type != "assistant":
             continue
         for tu in rec.tool_uses:
