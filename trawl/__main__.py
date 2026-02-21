@@ -223,9 +223,65 @@ def main():
             format_read(session, after=time_after, before=time_before)
         return
 
-    # Placeholder for future commands
-    if args.command in ("stats", "trace", "shapes", "slice"):
-        console.print(f"[yellow]{args.command} command not yet implemented.[/]")
+    # Resolve session for remaining commands
+    session = resolve_session_verbose(sessions, args.session, console)
+    if not session:
+        console.print(f"[red]No session matching '{args.session}'[/]")
+        sys.exit(1)
+
+    if args.command == "stats":
+        from trawl.commands.stats import cmd_stats
+        data = cmd_stats(session, aspect=getattr(args, "aspect", None))
+        if fmt == "json":
+            from trawl.formatters.json import format_json
+            format_json(data)
+        elif fmt == "toon":
+            from trawl.formatters.toon import format_toon
+            format_toon(data)
+        else:
+            from trawl.formatters.human import format_stats
+            format_stats(data)
+        return
+
+    if args.command == "trace":
+        from trawl.commands.trace import cmd_trace
+        data = cmd_trace(
+            session,
+            thinking_only=getattr(args, "thinking", False),
+            chains=getattr(args, "chains", False),
+            after=time_after, before=time_before,
+        )
+        if fmt == "json":
+            from trawl.formatters.json import format_json
+            format_json(data)
+        elif fmt == "toon":
+            from trawl.formatters.toon import format_toon
+            format_toon(data)
+        else:
+            from trawl.formatters.human import format_trace
+            format_trace(data)
+        return
+
+    if args.command == "shapes":
+        from trawl.commands.shapes import cmd_shapes
+        data = cmd_shapes(
+            session,
+            deep=getattr(args, "deep", False),
+            verify_file=getattr(args, "verify", None),
+        )
+        if fmt == "json":
+            from trawl.formatters.json import format_json
+            format_json(data)
+        elif fmt == "toon":
+            from trawl.formatters.toon import format_toon
+            format_toon(data)
+        else:
+            from trawl.formatters.human import format_shapes
+            format_shapes(data)
+        return
+
+    if args.command == "slice":
+        console.print("[yellow]slice command not yet implemented.[/]")
         sys.exit(1)
 
 

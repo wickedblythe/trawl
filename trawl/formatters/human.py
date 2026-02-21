@@ -20,7 +20,7 @@ from trawl.session import (
     is_noise_user_content, truncate_lines, extract_teammate_msg,
     is_compact_marker, will_render, is_flow_record,
     GAP_THRESHOLD_SECS, AGENT_COLORS, iter_jsonl, count_messages,
-    first_user_message,
+    first_user_message, short_model,
 )
 
 # ── Module state ──────────────────────────────────────────────────────
@@ -574,3 +574,223 @@ def format_flow(session: Session, after=None, before=None) -> None:
             _print_segment_separator(ts, reason="compact")
         color = color_map.get(source, "dim")
         prev_ts = _render_flow_record(rec, prev_ts, agent_label=source, agent_color=color) or prev_ts
+
+
+# ── Stats formatter ───────────────────────────────────────────────────
+
+def format_stats(data: dict) -> None:
+    w = min(console.width, 120)
+
+    # Duration
+    dur = data.get("duration_secs", 0)
+    if dur >= 3600:
+        dur_str = f"{dur // 3600}h {(dur % 3600) // 60}m {dur % 60}s"
+    elif dur >= 60:
+        dur_str = f"{dur // 60}m {dur % 60}s"
+    else:
+        dur_str = f"{dur}s"
+
+    msgs = data.get("messages", {})
+    tokens = data.get("tokens", {})
+    total_tok = tokens.get("total", {})
+    tools = data.get("tools", {})
+    agents_info = data.get("agents", {})
+
+    # Header
+    lines = []
+    lines.append(f"[bold]Duration:[/] {dur_str}  |  "
+                 f"[bold]Messages:[/] {msgs.get('user', 0)} user / {msgs.get('assistant', 0)} assistant")
+
+    # Tokens
+    inp_k = total_tok.get("input", 0) / 1000
+    out_k = total_tok.get("output", 0) / 1000
+    cache_r = total_tok.get("cache_read", 0) / 1000
+    cache_c = total_tok.get("cache_creation", 0) / 1000
+    tok_line = f"[bold]Tokens:[/] {inp_k:.1f}K in / {out_k:.1f}K out"
+    if cache_r > 0:
+        tok_line += f" / {cache_r:.1f}K cache-read"
+    if cache_c > 0:
+        tok_line += f" / {cache_c:.1f}K cache-create"
+    lines.append(tok_line)
+
+    # Cost
+    cost = data.get("cost_estimate_usd", 0)
+    lines.append(f"[bold]Est. cost:[/] ${cost:.2f}")
+
+    # Token breakdown by model
+    by_model = tokens.get("by_model", {})
+    if by_model:
+        model_table = Table(show_header=True, box=box_style(), padding=(0, 1),
+                           title="Tokens by Model", width=min(w, 80))
+        model_table.add_column("Model", style="cyan")
+        model_table.add_column("Input", justify="right")
+        model_table.add_column("Output", justify="right")
+        model_table.add_column("Cache Read", justify="right")
+        model_table.add_column("Cost", justify="right", style="green")
+        cost_by_model = data.get("cost_by_model", {})
+        for model, mtok in by_model.items():
+            model_table.add_row(
+                short_model(model),
+                f"{mtok.get('input', 0):,}",
+                f"{mtok.get('output', 0):,}",
+                f"{mtok.get('cache_read', 0):,}",
+                f"${cost_by_model.get(model, 0):.2f}",
+            )
+
+    # Tools
+    tool_names = tools.get("by_name", {})
+    top_tools = sorted(tool_names.items(), key=lambda x: x[1], reverse=True)[:10]
+    tool_str = ", ".join(f"{n}: {c}" for n, c in top_tools)
+    lines.append(f"[bold]Tools:[/] {tools.get('total_calls', 0)} calls ({tool_str})")
+    if tools.get("errors", 0) > 0:
+        lines.append(f"  [red]Errors: {tools['errors']} ({tools.get('error_rate', 0):.1%})[/]")
+
+    # Agents
+    lines.append(f"[bold]Agents:[/] {agents_info.get('count', 0)} subagents  |  "
+                 f"Parallelism: {agents_info.get('parallelism_ratio', 0):.2f}")
+
+    console.print(Panel(
+        "\n".join(lines),
+        title=f"Session {short_id(data.get('session', ''))}",
+        border_style="blue", box=box_style(), width=w,
+    ))
+
+    if by_model:
+        console.print(model_table)
+
+
+# ── Trace formatter ───────────────────────────────────────────────────
+
+def format_trace(data: dict) -> None:
+    # Chains mode
+    if "chains" in data:
+        _format_chains(data)
+        return
+
+    events = data.get("events", [])
+    console.print(Panel(
+        f"Trace: {short_id(data.get('session', ''))} - {len(events)} events",
+        style="bold blue", box=box_style(),
+    ))
+
+    prev_t = None
+    for ev in events:
+        t = ev.get("t", "")
+        ts = parse_ts(t)
+        delta = relative_delta(prev_t, ts) if prev_t and ts else ""
+        prev_t = ts or prev_t
+
+        etype = ev.get("type", "")
+        line = Text()
+
+        if delta:
+            line.append(f"+{delta:>4s} ", style="dim italic")
+        else:
+            line.append("      ", style="dim")
+
+        if etype == "user":
+            line.append("[user] ", style="bold cyan")
+            line.append(ev.get("preview", ""), style="cyan")
+        elif etype == "thinking":
+            line.append("[think] ", style="bold dim magenta")
+            line.append(ev.get("preview", ""), style="dim magenta")
+        elif etype == "text":
+            line.append("[text] ", style="bold green")
+            line.append(ev.get("preview", ""), style="green")
+        elif etype == "tool":
+            line.append("[tool] ", style="bold yellow")
+            line.append(ev.get("name", ""), style="yellow")
+            target = ev.get("target", "")
+            if target:
+                line.append(f" {target}", style="dim yellow")
+        elif etype == "spawn":
+            line.append("[spawn] ", style="bold blue")
+            line.append(ev.get("agent", ""), style="blue")
+            prompt = ev.get("prompt", "")
+            if prompt:
+                line.append(f" - {prompt}", style="dim blue")
+
+        console.print(line)
+
+
+def _format_chains(data: dict) -> None:
+    chains = data.get("chains", [])
+    console.print(Panel(
+        f"Spawn tree: {short_id(data.get('session', ''))} - {len(chains)} top-level spawns",
+        style="bold blue", box=box_style(),
+    ))
+
+    def _print_chain(node: dict, depth: int = 0):
+        indent = "  " * depth
+        prefix = "+-" if depth > 0 else ""
+        t = Text()
+        t.append(f"{indent}{prefix}", style="dim")
+        t.append(node.get("agent", "?"), style="bold blue")
+        prompt = node.get("prompt", "")
+        if prompt:
+            t.append(f" - {prompt}", style="dim")
+        console.print(t)
+        for child in node.get("children", []):
+            _print_chain(child, depth + 1)
+
+    for chain in chains:
+        _print_chain(chain)
+
+
+# ── Shapes formatter ──────────────────────────────────────────────────
+
+def format_shapes(data: dict) -> None:
+    # Coverage mode
+    if "coverage" in data:
+        _format_coverage(data)
+        return
+
+    shapes = data.get("shapes", [])
+    w = min(console.width, 120)
+
+    table = Table(title=f"Shapes for {short_id(data.get('session', ''))}",
+                  show_lines=False, padding=(0, 1), box=table_box(), width=w)
+    table.add_column("Fingerprint", style="cyan", no_wrap=True, width=12)
+    table.add_column("Type", style="bold", no_wrap=True, width=12)
+    table.add_column("Count", justify="right", width=6)
+    table.add_column("Keys", overflow="ellipsis")
+
+    for shape in shapes:
+        table.add_row(
+            shape["fingerprint"],
+            shape.get("type", ""),
+            str(shape.get("count", 0)),
+            shape.get("keys", ""),
+        )
+
+    console.print(table)
+    console.print(f"\n[dim]{len(shapes)} unique shapes[/]")
+
+    # Deep mode: show paths for each shape
+    for shape in shapes:
+        paths = shape.get("paths")
+        if paths:
+            console.print(f"\n[bold cyan]{shape['fingerprint']}[/] ({shape.get('type', '')}):")
+            for p in paths:
+                console.print(f"  {p['path']}: [dim]{p['type']}[/]")
+
+
+def _format_coverage(data: dict) -> None:
+    cov = data["coverage"]
+    lines = [
+        f"[bold]Session shapes:[/] {cov['session_shapes']}",
+        f"[bold]File shapes:[/] {cov['file_shapes']}",
+        f"[bold]Matched:[/] {cov['matched']}",
+        f"[bold]Coverage:[/] {cov['coverage_ratio']:.1%}",
+    ]
+    missing = cov.get("missing_from_file", [])
+    if missing:
+        lines.append(f"[red]Missing from file:[/] {', '.join(missing)}")
+    extra = cov.get("extra_in_file", [])
+    if extra:
+        lines.append(f"[yellow]Extra in file:[/] {', '.join(extra)}")
+    console.print(Panel(
+        "\n".join(lines),
+        title=f"Coverage: {short_id(data.get('session', ''))}",
+        border_style="blue", box=box_style(),
+    ))
