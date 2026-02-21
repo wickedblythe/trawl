@@ -356,11 +356,24 @@ def relative_delta(a: datetime | None, b: datetime | None) -> str:
     return f"{delta / 3600:.1f}h"
 
 
+_B64_RE = re.compile(r'[A-Za-z0-9+/]{200,}={0,2}')
+
+
+def collapse_b64(text: str) -> str:
+    """Replace long base64 blobs with a size summary."""
+    def _repl(m):
+        raw = m.group(0)
+        size = len(raw) * 3 // 4  # approximate decoded size
+        return f"[base64 ~{format_size(size)}]"
+    return _B64_RE.sub(_repl, text)
+
+
 def compact_json(obj: Any, max_len: int = 120) -> str:
     try:
         s = json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
     except (TypeError, ValueError):
         s = str(obj)
+    s = collapse_b64(s)
     if len(s) > max_len:
         s = s[:max_len] + "..."
     return s

@@ -18,7 +18,7 @@ from trawl.session import (
     Session, Record, Agent, MessageDedup,
     short_id, format_size, parse_ts, relative_delta, compact_json,
     is_noise_user_content, truncate_lines, extract_teammate_msg,
-    is_compact_marker, will_render, is_flow_record,
+    is_compact_marker, will_render, is_flow_record, collapse_b64,
     GAP_THRESHOLD_SECS, AGENT_COLORS, iter_jsonl, count_messages,
     first_user_message, short_model,
 )
@@ -173,7 +173,7 @@ def _render_tool_result(block: dict) -> Text:
             else:
                 parts.append(str(c))
         content = "\n".join(parts)
-    content = str(content)
+    content = collapse_b64(str(content))
     truncated = content if FULL_MODE else truncate_lines(content, max_lines=3)
     t = Text()
     t.append("  [result] ", style="dim")
