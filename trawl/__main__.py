@@ -281,8 +281,24 @@ def main():
         return
 
     if args.command == "slice":
-        console.print("[yellow]slice command not yet implemented.[/]")
-        sys.exit(1)
+        from trawl.commands.slice import cmd_slice
+        data = cmd_slice(
+            session,
+            after=time_after, before=time_before,
+            index_range=getattr(args, "index", None),
+        )
+        if fmt == "json":
+            from trawl.formatters.json import format_json
+            format_json(data)
+        elif fmt == "toon":
+            from trawl.formatters.toon import format_toon
+            format_toon(data)
+        else:
+            # Human: just show the count and delegate to read for rendering
+            console.print(f"[dim]Slice: {data['count']} records[/]")
+            from trawl.formatters.json import format_json
+            format_json(data)
+        return
 
 
 if __name__ == "__main__":
